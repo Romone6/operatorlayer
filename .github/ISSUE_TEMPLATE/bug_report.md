@@ -12,7 +12,7 @@ labels: bug
 
 ## Environment
 
-- OperatorLayer version or commit:
+- Operant version or commit:
 - Node and pnpm version:
 - Supabase deployment or local memory mode:
 

@@ -4,8 +4,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "OperatorLayer",
-    template: "%s | OperatorLayer",
+    default: "Operant",
+    template: "%s | Operant",
   },
   description: "Open-source communication governance for AI-assisted work.",
 };

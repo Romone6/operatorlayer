@@ -1,4 +1,4 @@
-# Releasing OperatorLayer
+# Releasing Operant
 
 ## Preconditions
 

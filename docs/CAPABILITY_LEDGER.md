@@ -1,4 +1,4 @@
-# Capability ledger
+# Operant capability ledger
 
 This is the release-truth source for the open-source core. A capability is implemented only when the code, tests, and documented boundary agree.
 
