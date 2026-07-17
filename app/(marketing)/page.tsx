@@ -6,7 +6,7 @@ export default function HomePage() {
       <section className="max-w-3xl space-y-7">
         <p className="section-label">Open-source communication governance</p>
         <h1 className="text-5xl font-semibold tracking-[-0.06em] text-[var(--color-text-main)]">Turn authorised company material into reviewable agent guidance.</h1>
-        <p className="text-lg leading-8 text-[var(--color-text-muted)]">OperatorLayer is an upload-first core for extracting evidence-backed policies, terminology, and scenarios; reviewing them with people; evaluating drafts; repairing drafts; and exporting the reviewed result.</p>
+        <p className="text-lg leading-8 text-[var(--color-text-muted)]">Operant is an upload-first core for extracting evidence-backed policies, terminology, and scenarios; reviewing them with people; evaluating drafts; repairing drafts; and exporting the reviewed result.</p>
         <div className="flex flex-wrap gap-3">
           <Link className="rounded-full bg-[var(--color-primary)] px-5 py-3 text-sm font-semibold text-white" href="/sign-up">Run it locally</Link>
           <Link className="rounded-full border border-[var(--color-border)] px-5 py-3 text-sm font-semibold" href="/docs">Read the documentation</Link>

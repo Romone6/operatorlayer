@@ -55,8 +55,11 @@ describe("open-source core scope", () => {
     }
   });
 
-  it("does not present the retired product name on public routes", () => {
+  it("does not present the legacy product name on public routes", () => {
     for (const relativePath of [
+      "README.md",
+      "CONTRIBUTING.md",
+      "LICENSE",
       "app/layout.tsx",
       "app/(marketing)/about/page.tsx",
       "app/(marketing)/contact/page.tsx",
@@ -66,8 +69,14 @@ describe("open-source core scope", () => {
       "app/(marketing)/product/page.tsx",
       "app/(marketing)/security/page.tsx",
       "app/(marketing)/solutions/page.tsx",
+      "components/app/app-sidebar.tsx",
+      "components/marketing/brand.tsx",
+      "components/marketing/footer.tsx",
+      "docs/CAPABILITY_LEDGER.md",
+      "docs/DEPLOYMENT.md",
+      "docs/RELEASING.md",
     ]) {
-      expect(fs.readFileSync(path.join(root, relativePath), "utf8")).not.toContain("Operant");
+      expect(fs.readFileSync(path.join(root, relativePath), "utf8")).not.toContain("OperatorLayer");
     }
   });
 

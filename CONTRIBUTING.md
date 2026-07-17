@@ -1,4 +1,4 @@
-# Contributing to OperatorLayer
+# Contributing to Operant
 
 Thank you for improving the upload-first public core. Start with an issue that names the user problem, real input/output boundary, and the evidence needed to verify the change. Keep pull requests small and independently reviewable.
 

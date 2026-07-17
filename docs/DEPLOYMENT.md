@@ -1,6 +1,6 @@
 # Deployment and staging acceptance
 
-OperatorLayer is self-hosted application code. Local tests do not prove Supabase RLS, private storage, migrations, or live model processing. Run this acceptance sequence in a non-production Supabase project before deploying or tagging a release.
+Operant is self-hosted application code. Local tests do not prove Supabase RLS, private storage, migrations, or live model processing. Run this acceptance sequence in a non-production Supabase project before deploying or tagging a release.
 
 ## Configure
 

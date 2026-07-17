@@ -1,10 +1,22 @@
-# OperatorLayer
+<p align="center">
+  <a href="https://github.com/Romone6/Operant"><strong>Operant</strong></a>
+</p>
+<p align="center">
+  <strong>Open-source communication governance for AI-assisted work.</strong>
+</p>
+<p align="center">
+  <a href="#quick-start">Quick start</a> · <a href="docs/CAPABILITY_LEDGER.md">Capabilities</a> · <a href="CONTRIBUTING.md">Contributing</a> · <a href="SECURITY.md">Security</a>
+</p>
+<p align="center">
+  <a href="https://github.com/Romone6/Operant/actions/workflows/ci.yml"><img src="https://github.com/Romone6/Operant/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
+</p>
 
-**Open-source communication governance for AI-assisted work.** OperatorLayer turns authorised company material into evidence-backed policies, terminology, and scenarios that people review before using them to generate, evaluate, repair, and export drafts.
+Operant turns authorised company material into evidence-backed policies, terminology, and scenarios that people review before using them to generate, evaluate, repair, and export drafts.
 
 It is not an autonomous agent. The public core has no live connectors and never sends customer messages.
 
-## What it does
+## How it works
 
 ```mermaid
 flowchart LR
@@ -45,7 +57,7 @@ Set these values in `.env.local`:
 
 Apply every SQL file in [`supabase/migrations`](supabase/migrations) to the target Supabase project before using the app. With the Supabase CLI linked to that project, run `npx supabase db push`. Never expose the service-role or OpenAI key to the browser.
 
-Without `OPENAI_API_KEY`, live processing fails clearly. OperatorLayer does not invent extracted rules or successful processing states.
+Without `OPENAI_API_KEY`, live processing fails clearly. Operant does not invent extracted rules or successful processing states.
 
 ## Core workflow
 
@@ -107,4 +119,4 @@ The public core is intentionally narrow. Current capability and non-goals live i
 
 ## Licence
 
-OperatorLayer is released under the [MIT License](LICENSE).
+Operant is released under the [MIT License](LICENSE).
