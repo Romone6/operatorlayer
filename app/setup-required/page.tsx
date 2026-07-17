@@ -9,7 +9,7 @@ export default function SetupRequiredPage() {
       <div className="glass-card space-y-7 rounded-2xl p-8">
         <div className="space-y-3">
           <p className="section-label">Setup required</p>
-          <h1 className="text-3xl font-semibold text-[var(--color-text-main)]">Configure the upload-first core.</h1>
+          <h1 className="text-3xl font-semibold text-[var(--color-text-main)]">Configure Operant.</h1>
           <p className="text-sm text-[var(--color-text-soft)]">This deployment needs Supabase for authentication and organisation-isolated data. Model processing additionally requires an OpenAI server key.</p>
         </div>
         <section className="rounded-xl border border-white/20 bg-white/70 p-5">

@@ -1,5 +1,5 @@
 import { PublicPage } from "@/components/marketing/public-page";
 
 export default function IntegrationsPage() {
-  return <PublicPage eyebrow="Integrations" title="No live integrations are part of this release." summary="Operant is intentionally upload-first. It does not sync Gmail, Slack, CRM, or other providers, and it does not send messages." items={[{ title: "Current input", body: "Paste authorised text or upload supported documents into an organisation-scoped workspace." }, { title: "Expansion boundary", body: "A connector requires a separately scoped design, permissions model, real implementation, and evidence before it can be claimed." }]} />;
+  return <PublicPage eyebrow="Integrations" title="Start with the resources you choose." summary="Add a document or paste text and Operant begins extracting guidance. It does not connect to Gmail, Slack, CRMs, or other providers." items={[{ title: "Bring your own resources", body: "Paste approved text or upload supported documents into your workspace." }, { title: "No hidden connections", body: "Operant does not read from or send through third-party communication tools." }]} />;
 }

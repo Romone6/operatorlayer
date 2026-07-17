@@ -17,7 +17,7 @@ export default function AppSourcesPage() {
     return (
       <section className="space-y-6">
         <h1 className="text-3xl font-semibold">Sources</h1>
-        <SourceUploadForm />
+        <SourceUploadForm onCreated={sources.refresh} />
         <EmptyState message="No sources uploaded yet." />
       </section>
     );
@@ -26,7 +26,7 @@ export default function AppSourcesPage() {
   return (
     <section className="space-y-6">
       <h1 className="text-3xl font-semibold">Sources</h1>
-      <SourceUploadForm />
+      <SourceUploadForm onCreated={sources.refresh} />
       <div className="grid gap-4 lg:grid-cols-2">
         {sources.data.map((source) => (
           <div key={source.id} className="space-y-2">

@@ -80,6 +80,29 @@ describe("open-source core scope", () => {
     }
   });
 
+  it("keeps internal release-scope jargon out of public copy", () => {
+    for (const relativePath of [
+      "README.md",
+      "CONTRIBUTING.md",
+      ".github/ISSUE_TEMPLATE/bug_report.md",
+      ".github/ISSUE_TEMPLATE/feature_request.md",
+      "app/(marketing)/about/page.tsx",
+      "app/(marketing)/contact/page.tsx",
+      "app/(marketing)/integrations/page.tsx",
+      "app/(marketing)/page.tsx",
+      "app/(marketing)/pricing/page.tsx",
+      "app/(marketing)/product/page.tsx",
+      "app/(marketing)/security/page.tsx",
+      "app/(marketing)/solutions/page.tsx",
+      "components/marketing/footer.tsx",
+    ]) {
+      const source = fs.readFileSync(path.join(root, relativePath), "utf8");
+      expect(source).not.toContain("upload-first");
+      expect(source).not.toContain("public core");
+      expect(source).not.toContain("open-source core");
+    }
+  });
+
   it("keeps local Supabase state and vulnerability reports out of public contribution flow", () => {
     const gitignore = fs.readFileSync(path.join(root, ".gitignore"), "utf8");
     const security = fs.readFileSync(path.join(root, "SECURITY.md"), "utf8");
