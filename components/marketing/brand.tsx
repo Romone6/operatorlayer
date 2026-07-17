@@ -24,14 +24,14 @@ export function Wordmark({ className }: { className?: string }) {
   return (
     <span className={cn("inline-flex items-center gap-2.5 font-semibold tracking-[-0.035em] text-[var(--color-text-main)]", className)}>
       <LogoMark />
-      <span className="text-3xl">Operant</span>
+      <span className="text-2xl">OperatorLayer</span>
     </span>
   );
 }
 
 export function WordmarkLink({ className }: { className?: string }) {
   return (
-    <Link href="/" aria-label="Operant home" className={cn("inline-flex", className)}>
+    <Link href="/" aria-label="OperatorLayer home" className={cn("inline-flex", className)}>
       <Wordmark />
     </Link>
   );

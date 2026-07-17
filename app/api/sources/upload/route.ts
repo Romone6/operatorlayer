@@ -9,7 +9,7 @@ import { getRepository } from "@/lib/repository";
 import { resolveRequestIdempotencyKey } from "@/lib/services/idempotency";
 import { enqueueJobWithIdempotency } from "@/lib/services/job-queue";
 import { runNextQueuedJob } from "@/lib/services/jobs";
-import { uploadSourceFile } from "@/lib/storage";
+import { uploadSourceFile, validateSourceFile } from "@/lib/storage";
 import { sourceUploadSchema } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
@@ -29,7 +29,6 @@ export async function POST(request: NextRequest) {
     const pastedText = String(formData.get("pastedText") ?? "");
 
     sourceUploadSchema.parse({ title, sourceType, authorityLevel, pastedText: pastedText || undefined });
-    let fileUrl: string | undefined;
     let rawText = "";
 
     if (sourceType === "pasted_text") {
@@ -38,6 +37,7 @@ export async function POST(request: NextRequest) {
       if (!(file instanceof File)) {
         throw new AppError(400, "missing_file", "A file is required for this source type.");
       }
+      validateSourceFile(file);
       const createdSource = await repository.createSource({
         organisationId: context.organisationId,
         title,
@@ -55,14 +55,13 @@ export async function POST(request: NextRequest) {
         fileName: file.name,
         data: buffer,
       });
-      fileUrl = upload.fileUrl;
 
       const source = await repository.updateSourceStatus({
         sourceId: createdSource.id,
         organisationId: context.organisationId,
         status: "uploaded",
         rawText,
-        metadata: { fileName: file.name, fileSize: file.size, fileUrl },
+        metadata: { fileName: file.name, fileSize: file.size, storagePath: upload.storagePath },
       });
       await enqueueJobWithIdempotency(repository, {
         organisationId: context.organisationId,
@@ -96,7 +95,6 @@ export async function POST(request: NextRequest) {
       title,
       sourceType,
       authorityLevel,
-      fileUrl,
       rawText,
       metadata: { uploadedAt: new Date().toISOString() },
     });

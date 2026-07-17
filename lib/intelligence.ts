@@ -1,5 +1,4 @@
 import { requestJson } from "@/lib/llm";
-import { hasActiveLlmProviderCredential } from "@/lib/enterprise/store";
 import type { OperatorRepository } from "@/lib/repository/interface";
 import type { SourceChunk } from "@/lib/types";
 import {
@@ -12,7 +11,7 @@ import {
 } from "@/lib/validation";
 
 function deterministicMode() {
-  return process.env.OPERATORLAYER_PROCESSING_MODE === "deterministic";
+  return process.env.NODE_ENV === "test" && process.env.OPERATORLAYER_PROCESSING_MODE === "deterministic";
 }
 
 type IntelligenceContext = {
@@ -21,12 +20,8 @@ type IntelligenceContext = {
 };
 
 async function shouldUseDeterministicFallback(context?: IntelligenceContext) {
-  if (deterministicMode()) return true;
-  if (process.env.OPENAI_API_KEY) return false;
-  if (context?.repository && context.organisationId) {
-    return !(await hasActiveLlmProviderCredential(context.repository, context.organisationId));
-  }
-  return false;
+  void context;
+  return deterministicMode();
 }
 
 export async function extractPolicyFromManual(rawText: string, context?: IntelligenceContext): Promise<StructuredPolicy[]> {

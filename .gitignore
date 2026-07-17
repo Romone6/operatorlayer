@@ -45,3 +45,7 @@ next-env.d.ts
 /playwright-report
 /test-results
 .worktrees/
+
+# Supabase CLI state is machine-local and may identify local project state.
+supabase/.branches/
+supabase/.temp/

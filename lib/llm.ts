@@ -1,43 +1,16 @@
 import OpenAI from "openai";
 
-import { resolveActiveLlmRoute } from "@/lib/enterprise/store";
 import { AppError } from "@/lib/errors";
-import type { OperatorRepository } from "@/lib/repository/interface";
 
 type LlmMessage = {
   role: "system" | "user";
   content: string;
 };
 
-type LlmRequestContext = {
-  repository?: OperatorRepository;
-  organisationId?: string;
-};
-
-async function resolveOpenAiConfig(context?: LlmRequestContext) {
-  if (context?.repository && context.organisationId) {
-    const activeRoute = await resolveActiveLlmRoute(context.repository, context.organisationId);
-    if (activeRoute) {
-      if (activeRoute.credential.provider !== "openai") {
-        throw new AppError(
-          501,
-          "llm_provider_not_implemented",
-          `${activeRoute.credential.provider} routing is configured but not implemented for live model calls yet.`,
-          { provider: activeRoute.credential.provider }
-        );
-      }
-      return {
-        apiKey: activeRoute.apiKey,
-        model: activeRoute.credential.model,
-        baseURL: activeRoute.credential.baseUrl ?? undefined,
-        source: "organisation_byok" as const,
-      };
-    }
-  }
-
+async function resolveOpenAiConfig() {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    throw new AppError(500, "openai_key_missing", "OPENAI_API_KEY or an active organisation OpenAI key is required for model-based extraction.");
+    throw new AppError(500, "openai_key_missing", "OPENAI_API_KEY is required for model-based processing.");
   }
 
   return {
@@ -52,9 +25,10 @@ export async function requestJson<T>(
   schemaName: string,
   schemaDescription: string,
   messages: LlmMessage[],
-  context?: LlmRequestContext
+  _context?: unknown
 ): Promise<T> {
-  const config = await resolveOpenAiConfig(context);
+  void _context;
+  const config = await resolveOpenAiConfig();
   const client = new OpenAI({ apiKey: config.apiKey, baseURL: config.baseURL });
   const response = await client.responses.create({
     model: config.model,

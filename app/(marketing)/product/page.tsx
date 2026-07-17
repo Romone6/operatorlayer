@@ -1,18 +1,5 @@
-﻿import { DifferentiationGrid, StickyProductTour, WorkflowCanvas } from "@/components/marketing/product-surfaces";
-import { PageCTA } from "@/components/marketing/business-sections";
+import { PublicPage } from "@/components/marketing/public-page";
 
 export default function ProductPage() {
-  return (
-    <main>
-      <section className="mx-auto max-w-7xl px-5 py-20">
-        <p className="section-label">Product</p>
-        <h1 className="mt-4 max-w-5xl text-5xl font-semibold leading-tight md:text-7xl">From scattered company knowledge to agent-ready operating instructions.</h1>
-        <p className="mt-6 max-w-3xl text-lg leading-8 text-[var(--color-text-muted)]">Operant extracts rules, terminology, scenarios, approvals, and evaluation standards from authorised sources, then uses them to guide, evaluate, repair, approve, and export agent work.</p>
-      </section>
-      <StickyProductTour />
-      <WorkflowCanvas />
-      <DifferentiationGrid />
-      <PageCTA title="See the operating layer in action." body="Compile policy, evaluate drafts, repair weak outputs, and export governance packs for your AI stack." />
-    </main>
-  );
+  return <PublicPage eyebrow="Product" title="Turn authorised source material into reviewed guidance." summary="OperatorLayer extracts policies, terminology, scenarios, and conflicts, then helps teams generate, evaluate, repair, and export communication guidance." items={[{ title: "Ingest", body: "Upload authorised files or paste text. Processing is organisation-scoped and source evidence is retained." }, { title: "Review", body: "Reviewers approve or reject extracted guidance before it governs exports." }, { title: "Use", body: "The playground drafts, evaluates, and repairs communication without transport or auto-send." }, { title: "Export", body: "Approved policy packs contain only the documented core artifacts and a version manifest." }]} />;
 }

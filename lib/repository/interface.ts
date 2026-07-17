@@ -12,6 +12,8 @@ import type {
   OrganisationSettings,
   ProcessingJob,
   ReviewEvent,
+  ReviewedExample,
+  FeedbackRecord,
   Scenario,
   Source,
   SourceChunk,
@@ -124,6 +126,8 @@ export type ContactSubmissionInput = Omit<ContactRequest, "id" | "createdAt">;
 export type IngestionLogInput = Omit<IngestionLog, "id" | "createdAt">;
 
 export type ReviewEventInput = Omit<ReviewEvent, "id" | "createdAt">;
+export type CreateReviewedExampleInput = Omit<ReviewedExample, "id" | "createdAt">;
+export type CreateFeedbackInput = Omit<FeedbackRecord, "id" | "createdAt">;
 
 export type CreateMemberInviteInput = {
   organisationId: string;
@@ -214,6 +218,10 @@ export interface OperatorRepository {
     record: Omit<EvaluationRecord, "id" | "organisationId" | "createdAt">
   ): Promise<EvaluationRecord>;
   listEvaluations(organisationId: string): Promise<EvaluationRecord[]>;
+  createReviewedExample(input: CreateReviewedExampleInput): Promise<ReviewedExample>;
+  listReviewedExamples(organisationId: string): Promise<ReviewedExample[]>;
+  createFeedback(input: CreateFeedbackInput): Promise<FeedbackRecord>;
+  listFeedback(organisationId: string): Promise<FeedbackRecord[]>;
   createExport(
     organisationId: string,
     exportType: string,

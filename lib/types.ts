@@ -129,6 +129,7 @@ export type ExtractedPolicy = {
 export type Scenario = {
   id: string;
   organisationId: string;
+  sourceId: string | null;
   name: string;
   category: string;
   description: string;
@@ -143,6 +144,7 @@ export type Scenario = {
 export type Conflict = {
   id: string;
   organisationId: string;
+  sourceId: string | null;
   conflictType: string;
   severity: Severity;
   manualRule: string;
@@ -189,6 +191,32 @@ export type EvaluationRecord = {
   createdAt: string;
 };
 
+export type ReviewedExample = {
+  id: string;
+  organisationId: string;
+  scenarioId: string | null;
+  evaluationId: string | null;
+  exampleType: "approved" | "rejected";
+  inputMessage: string;
+  responseText: string;
+  rationale: string;
+  reviewedBy: string;
+  createdAt: string;
+};
+
+export type FeedbackRecord = {
+  id: string;
+  organisationId: string;
+  scenarioId: string | null;
+  evaluationId: string | null;
+  outcome: "accepted" | "edited" | "rejected" | "escalated";
+  rationale: string;
+  correctedDraft: string | null;
+  source: "manual" | "import";
+  createdBy: string | null;
+  createdAt: string;
+};
+
 export type ExportArtifact = {
   name:
     | "company_voice.md"
@@ -201,15 +229,6 @@ export type ExportArtifact = {
     | "approved_examples.jsonl"
     | "rejected_examples.jsonl"
     | "agent_prompt_pack.md"
-    | "company_identity.json"
-    | "knowledge_pack.json"
-    | "sales_positioning_pack.json"
-    | "support_resolution_pack.json"
-    | "escalation_hierarchy.json"
-    | "agent_permissions.json"
-    | "runtime_governance_policy.json"
-    | "test_suite_manifest.json"
-    | "agent_alignment_report.json"
     | "policy_version_manifest.json";
   contentType: string;
   content: string;

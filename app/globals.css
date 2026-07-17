@@ -114,31 +114,6 @@ a {
   border-top: 1px dashed color-mix(in srgb, var(--color-primary) 45%, transparent);
 }
 
-.operant-grid-bg {
-  background-image:
-    linear-gradient(color-mix(in srgb, var(--color-border) 46%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--color-border) 46%, transparent) 1px, transparent 1px);
-  background-size: 28px 28px;
-}
-
-.logo-marquee-mask {
-  mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
-}
-
-.logo-marquee-track {
-  animation: operant-marquee 34s linear infinite;
-}
-
-.product-pulse {
-  animation: operant-pulse 3.6s ease-in-out infinite;
-}
-
-.workflow-dash {
-  stroke-dasharray: 8 8;
-  animation: operant-dash 18s linear infinite;
-}
-
-
 .animate-marquee {
   animation: marquee var(--duration) linear infinite;
 }
@@ -155,20 +130,6 @@ a {
 @keyframes marquee-vertical {
   from { transform: translateY(0); }
   to { transform: translateY(calc(-100% - var(--gap))); }
-}
-
-@keyframes operant-marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
-
-@keyframes operant-pulse {
-  0%, 100% { transform: translateY(0); opacity: 0.86; }
-  50% { transform: translateY(-3px); opacity: 1; }
-}
-
-@keyframes operant-dash {
-  to { stroke-dashoffset: -220; }
 }
 
 @media (prefers-reduced-motion: reduce) {

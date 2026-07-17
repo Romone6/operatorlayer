@@ -7,6 +7,8 @@ import {
   type CreateJobInput,
   type CreateOrganisationInput,
   type CreateSourceInput,
+  type CreateReviewedExampleInput,
+  type CreateFeedbackInput,
   type IngestionLogInput,
   type InsertExtractionInput,
   type OperatorRepository,
@@ -32,6 +34,8 @@ import type {
   OrganisationSettings,
   ProcessingJob,
   ReviewEvent,
+  ReviewedExample,
+  FeedbackRecord,
   Scenario,
   Source,
   SourceChunk,
@@ -171,6 +175,7 @@ function mapConflict(row: Record<string, unknown>): Conflict {
   return {
     id: String(row.id),
     organisationId: String(row.organisation_id),
+    sourceId: row.source_id ? String(row.source_id) : null,
     conflictType: String(row.conflict_type ?? ""),
     severity: (row.severity as Conflict["severity"]) ?? "medium",
     manualRule: String(row.manual_rule ?? ""),
@@ -182,6 +187,29 @@ function mapConflict(row: Record<string, unknown>): Conflict {
     updatedAt: String(row.updated_at ?? row.created_at),
     reviewedBy: row.reviewed_by ? String(row.reviewed_by) : null,
     reviewedAt: row.reviewed_at ? String(row.reviewed_at) : null,
+  };
+}
+
+function mapReviewedExample(row: Record<string, unknown>): ReviewedExample {
+  return {
+    id: String(row.id), organisationId: String(row.organisation_id),
+    scenarioId: row.scenario_id ? String(row.scenario_id) : null,
+    evaluationId: row.evaluation_id ? String(row.evaluation_id) : null,
+    exampleType: row.example_type as ReviewedExample["exampleType"],
+    inputMessage: String(row.input_message ?? ""), responseText: String(row.response_text ?? ""),
+    rationale: String(row.rationale ?? ""), reviewedBy: String(row.reviewed_by ?? ""), createdAt: String(row.created_at),
+  };
+}
+
+function mapFeedback(row: Record<string, unknown>): FeedbackRecord {
+  return {
+    id: String(row.id), organisationId: String(row.organisation_id),
+    scenarioId: row.scenario_id ? String(row.scenario_id) : null,
+    evaluationId: row.evaluation_id ? String(row.evaluation_id) : null,
+    outcome: row.outcome as FeedbackRecord["outcome"], rationale: String(row.rationale ?? ""),
+    correctedDraft: row.corrected_draft ? String(row.corrected_draft) : null,
+    source: row.source as FeedbackRecord["source"], createdBy: row.created_by ? String(row.created_by) : null,
+    createdAt: String(row.created_at),
   };
 }
 
@@ -462,7 +490,7 @@ export class SupabaseRepository implements OperatorRepository {
       .from("terminology_patterns")
       .select("id, source_evidence")
       .eq("organisation_id", organisationId);
-    const { data: scenarios } = await this.client.from("scenarios").select("id, trigger_phrases").eq("organisation_id", organisationId);
+    const { data: scenarios } = await this.client.from("scenarios").select("id, source_id").eq("organisation_id", organisationId);
 
     return data.map((row) => {
       const source = mapSource(row);
@@ -478,10 +506,7 @@ export class SupabaseRepository implements OperatorRepository {
             (item) => (item.source_id ?? item.sourceId) === source.id
           )
         ).length ?? 0;
-      const scenarioCount =
-        scenarios?.filter((scenario) =>
-          ((scenario.trigger_phrases as string[]) ?? []).some((phrase) => source.rawText?.includes(phrase))
-        ).length ?? 0;
+      const scenarioCount = scenarios?.filter((scenario) => scenario.source_id === source.id).length ?? 0;
 
       return {
         ...source,
@@ -505,6 +530,36 @@ export class SupabaseRepository implements OperatorRepository {
   }
 
   async deleteSource(organisationId: string, sourceId: string): Promise<void> {
+    const [policies, terminology] = await Promise.all([
+      this.listPolicies(organisationId),
+      this.listTerminology(organisationId),
+    ]);
+
+    const policyIds = policies
+      .filter((policy) => policy.sourceEvidence.some((evidence) => evidence.sourceId === sourceId))
+      .map((policy) => policy.id);
+    const terminologyIds = terminology
+      .filter((term) => term.sourceEvidence.some((evidence) => evidence.sourceId === sourceId))
+      .map((term) => term.id);
+
+    if (policyIds.length > 0) {
+      const { error } = await this.client
+        .from("policies")
+        .delete()
+        .eq("organisation_id", organisationId)
+        .in("id", policyIds);
+      if (error) throw new AppError(500, "db_delete_failed", "Failed to delete source policies", error);
+    }
+
+    if (terminologyIds.length > 0) {
+      const { error } = await this.client
+        .from("terminology_patterns")
+        .delete()
+        .eq("organisation_id", organisationId)
+        .in("id", terminologyIds);
+      if (error) throw new AppError(500, "db_delete_failed", "Failed to delete source terminology", error);
+    }
+
     const { error } = await this.client
       .from("sources")
       .delete()
@@ -514,12 +569,15 @@ export class SupabaseRepository implements OperatorRepository {
   }
 
   async updateSourceStatus(input: UpdateSourceStatusInput): Promise<Source> {
+    const current = await this.getSourceById(input.organisationId, input.sourceId);
+    if (!current) throw new AppError(404, "source_not_found", "Source not found");
+
     const { data, error } = await this.client
       .from("sources")
       .update({
         processing_status: input.status,
-        metadata: input.metadata ?? {},
-        raw_text: input.rawText,
+        metadata: { ...current.metadata, ...(input.metadata ?? {}) },
+        raw_text: input.rawText ?? current.rawText,
         updated_at: new Date().toISOString(),
       })
       .eq("organisation_id", input.organisationId)
@@ -563,8 +621,8 @@ export class SupabaseRepository implements OperatorRepository {
       await this.client.from("terminology_patterns").delete().eq("id", term.id);
     }
 
-    await this.client.from("scenarios").delete().eq("organisation_id", organisationId);
-    await this.client.from("conflicts").delete().eq("organisation_id", organisationId);
+    await this.client.from("scenarios").delete().eq("organisation_id", organisationId).eq("source_id", sourceId);
+    await this.client.from("conflicts").delete().eq("organisation_id", organisationId).eq("source_id", sourceId);
 
     if (payload.policies.length > 0) {
       const { error } = await this.client.from("policies").insert(
@@ -613,6 +671,7 @@ export class SupabaseRepository implements OperatorRepository {
         payload.scenarios.map((scenario) => ({
           id: scenario.id,
           organisation_id: scenario.organisationId,
+          source_id: scenario.sourceId,
           name: scenario.name,
           category: scenario.category,
           description: scenario.description,
@@ -631,6 +690,7 @@ export class SupabaseRepository implements OperatorRepository {
         payload.conflicts.map((conflict) => ({
           id: conflict.id,
           organisation_id: conflict.organisationId,
+          source_id: conflict.sourceId,
           conflict_type: conflict.conflictType,
           severity: conflict.severity,
           manual_rule: conflict.manualRule,
@@ -709,6 +769,7 @@ export class SupabaseRepository implements OperatorRepository {
     return data.map((row) => ({
       id: String(row.id),
       organisationId: String(row.organisation_id),
+      sourceId: row.source_id ? String(row.source_id) : null,
       name: String(row.name),
       category: String(row.category ?? ""),
       description: String(row.description ?? ""),
@@ -906,6 +967,7 @@ export class SupabaseRepository implements OperatorRepository {
     return {
       id: String(data.id),
       organisationId: String(data.organisation_id),
+      sourceId: data.source_id ? String(data.source_id) : null,
       name: String(data.name),
       category: String(data.category ?? ""),
       description: String(data.description ?? ""),
@@ -1046,6 +1108,38 @@ export class SupabaseRepository implements OperatorRepository {
       repairRequired: Boolean(row.repair_required),
       createdAt: String(row.created_at),
     }));
+  }
+
+  async createReviewedExample(input: CreateReviewedExampleInput): Promise<ReviewedExample> {
+    const { data, error } = await this.client.from("reviewed_examples").insert({
+      organisation_id: input.organisationId, scenario_id: input.scenarioId, evaluation_id: input.evaluationId,
+      example_type: input.exampleType, input_message: input.inputMessage, response_text: input.responseText,
+      rationale: input.rationale, reviewed_by: input.reviewedBy,
+    }).select("*").single();
+    if (error || !data) throw new AppError(500, "db_insert_failed", "Failed to save reviewed example", error);
+    return mapReviewedExample(data);
+  }
+
+  async listReviewedExamples(organisationId: string): Promise<ReviewedExample[]> {
+    const { data, error } = await this.client.from("reviewed_examples").select("*").eq("organisation_id", organisationId).order("created_at", { ascending: false });
+    if (error || !data) throw new AppError(500, "db_read_failed", "Failed to list reviewed examples", error);
+    return data.map((row) => mapReviewedExample(row));
+  }
+
+  async createFeedback(input: CreateFeedbackInput): Promise<FeedbackRecord> {
+    const { data, error } = await this.client.from("feedback_records").insert({
+      organisation_id: input.organisationId, scenario_id: input.scenarioId, evaluation_id: input.evaluationId,
+      outcome: input.outcome, rationale: input.rationale, corrected_draft: input.correctedDraft,
+      source: input.source, created_by: input.createdBy,
+    }).select("*").single();
+    if (error || !data) throw new AppError(500, "db_insert_failed", "Failed to save feedback", error);
+    return mapFeedback(data);
+  }
+
+  async listFeedback(organisationId: string): Promise<FeedbackRecord[]> {
+    const { data, error } = await this.client.from("feedback_records").select("*").eq("organisation_id", organisationId).order("created_at", { ascending: false });
+    if (error || !data) throw new AppError(500, "db_read_failed", "Failed to list feedback", error);
+    return data.map((row) => mapFeedback(row));
   }
 
   async createExport(

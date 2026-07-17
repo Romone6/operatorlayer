@@ -15,6 +15,8 @@ import type {
   OrganisationSettings,
   ProcessingJob,
   ReviewEvent,
+  ReviewedExample,
+  FeedbackRecord,
   Scenario,
   Source,
   SourceChunk,
@@ -31,6 +33,8 @@ import type {
   InsertExtractionInput,
   OperatorRepository,
   ReviewEventInput,
+  CreateReviewedExampleInput,
+  CreateFeedbackInput,
   ReviewQueuePayload,
   ReviewQueueItem,
   ReviewQueueSection,
@@ -61,6 +65,8 @@ type MemoryState = {
   contactRequests: ContactRequest[];
   ingestionLogs: IngestionLog[];
   reviewEvents: ReviewEvent[];
+  reviewedExamples: ReviewedExample[];
+  feedback: FeedbackRecord[];
   jobs: ProcessingJob[];
 };
 
@@ -83,6 +89,8 @@ const initialState: MemoryState = {
   contactRequests: [],
   ingestionLogs: [],
   reviewEvents: [],
+  reviewedExamples: [],
+  feedback: [],
   jobs: [],
 };
 
@@ -125,6 +133,8 @@ function loadState(): MemoryState {
     contactRequests: parsed.contactRequests ?? [],
     ingestionLogs: parsed.ingestionLogs ?? [],
     reviewEvents: parsed.reviewEvents ?? [],
+    reviewedExamples: parsed.reviewedExamples ?? [],
+    feedback: parsed.feedback ?? [],
     jobs: parsed.jobs ?? [],
   };
 }
@@ -145,8 +155,8 @@ function getSourceStats(state: MemoryState, source: Source) {
     phraseCount: state.terminology.filter((term) =>
       term.sourceEvidence.some((item) => item.sourceId === source.id)
     ).length,
-    scenarioCount: state.scenarios.filter((scenario) =>
-      scenario.triggerPhrases.some((phrase) => source.rawText?.includes(phrase))
+  scenarioCount: state.scenarios.filter((scenario) =>
+      scenario.sourceId === source.id
     ).length,
   };
 }
@@ -431,6 +441,12 @@ export class MemoryRepository implements OperatorRepository {
           term.sourceEvidence.some((evidence) => evidence.sourceId === sourceId)
         )
     );
+    state.scenarios = state.scenarios.filter(
+      (scenario) => !(scenario.organisationId === organisationId && scenario.sourceId === sourceId)
+    );
+    state.conflicts = state.conflicts.filter(
+      (conflict) => !(conflict.organisationId === organisationId && conflict.sourceId === sourceId)
+    );
     saveState(state);
   }
 
@@ -480,8 +496,12 @@ export class MemoryRepository implements OperatorRepository {
           term.sourceEvidence.some((item) => item.sourceId === sourceId)
         )
     );
-    state.scenarios = state.scenarios.filter((scenario) => scenario.organisationId !== organisationId);
-    state.conflicts = state.conflicts.filter((conflict) => conflict.organisationId !== organisationId);
+    state.scenarios = state.scenarios.filter(
+      (scenario) => !(scenario.organisationId === organisationId && scenario.sourceId === sourceId)
+    );
+    state.conflicts = state.conflicts.filter(
+      (conflict) => !(conflict.organisationId === organisationId && conflict.sourceId === sourceId)
+    );
 
     state.policies.push(...payload.policies);
     state.terminology.push(...payload.terminologyPatterns);
@@ -758,6 +778,36 @@ export class MemoryRepository implements OperatorRepository {
     const state = loadState();
     return state.evaluations
       .filter((evaluation) => evaluation.organisationId === organisationId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  async createReviewedExample(input: CreateReviewedExampleInput): Promise<ReviewedExample> {
+    const state = loadState();
+    const record: ReviewedExample = { id: id(), createdAt: nowIso(), ...input };
+    state.reviewedExamples.push(record);
+    saveState(state);
+    return record;
+  }
+
+  async listReviewedExamples(organisationId: string): Promise<ReviewedExample[]> {
+    const state = loadState();
+    return state.reviewedExamples
+      .filter((record) => record.organisationId === organisationId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  async createFeedback(input: CreateFeedbackInput): Promise<FeedbackRecord> {
+    const state = loadState();
+    const record: FeedbackRecord = { id: id(), createdAt: nowIso(), ...input };
+    state.feedback.push(record);
+    saveState(state);
+    return record;
+  }
+
+  async listFeedback(organisationId: string): Promise<FeedbackRecord[]> {
+    const state = loadState();
+    return state.feedback
+      .filter((record) => record.organisationId === organisationId)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 

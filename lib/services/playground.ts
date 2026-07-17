@@ -1,11 +1,7 @@
 import crypto from "node:crypto";
 
-import {
-  hasActiveLlmProviderCredential,
-  resolveAgentGovernanceConfigs,
-  resolveApprovalRules,
-} from "@/lib/enterprise/store";
 import { requestJson } from "@/lib/llm";
+import { AppError } from "@/lib/errors";
 import type { OperatorRepository } from "@/lib/repository/interface";
 import type {
   EvaluationRecord,
@@ -16,13 +12,11 @@ import type {
 } from "@/lib/types";
 
 function isDeterministicMode() {
-  return process.env.OPERATORLAYER_PROCESSING_MODE === "deterministic";
+  return process.env.NODE_ENV === "test" && process.env.OPERATORLAYER_PROCESSING_MODE === "deterministic";
 }
 
-async function shouldUseDeterministicFallback(repository: OperatorRepository, organisationId: string) {
-  if (isDeterministicMode()) return true;
-  if (process.env.OPENAI_API_KEY) return false;
-  return !(await hasActiveLlmProviderCredential(repository, organisationId));
+function shouldUseDeterministicFallback() {
+  return isDeterministicMode();
 }
 
 function hash(value: string) {
@@ -58,7 +52,7 @@ export async function generateScenarioGuidance(
       )
     : policies.slice(0, 2);
 
-  if (await shouldUseDeterministicFallback(repository, organisationId)) {
+  if (shouldUseDeterministicFallback()) {
     return {
       scenarioId: matchedScenario?.id ?? null,
       scenarioName: matchedScenario?.name ?? "general_inquiry",
@@ -184,7 +178,7 @@ export async function generateDraft(params: {
     return params.existingDraft.trim();
   }
 
-  if (await shouldUseDeterministicFallback(params.repository, params.organisationId)) {
+  if (shouldUseDeterministicFallback()) {
     return `Thanks for sharing this. ${params.guidance.approvedPhrases[0] ?? "Based on what you shared..."} We can align this to your goals without stepping outside approved policy. Would you be open to a scoped next step this week?`;
   }
 
@@ -293,7 +287,7 @@ export async function repairDraft(params: {
     return params.draft;
   }
 
-  if (await shouldUseDeterministicFallback(params.repository, params.organisationId)) {
+  if (shouldUseDeterministicFallback()) {
     return `${params.guidance.approvedPhrases[0] ?? "Thanks for raising this."} Based on what you shared, a scoped pilot approach may make more sense. Would you like me to outline a practical next-step plan?`;
   }
 
@@ -396,15 +390,22 @@ export async function generateExportPack(
   repository: OperatorRepository,
   organisationId: string
 ): Promise<ExportRecord> {
-  const [policies, scenarios, terminology, evaluations, approvalRules, agentConfigs, existingExports] = await Promise.all([
+  const [loadedPolicies, scenarios, loadedTerminology, evaluations, existingExports] = await Promise.all([
     repository.listPolicies(organisationId),
     repository.listScenarios(organisationId),
     repository.listTerminology(organisationId),
     repository.listEvaluations(organisationId),
-    resolveApprovalRules(repository, organisationId),
-    resolveAgentGovernanceConfigs(repository, organisationId),
     repository.listExports(organisationId),
   ]);
+  const policies = loadedPolicies.filter((policy) => policy.status === "approved");
+  const terminology = loadedTerminology.filter((term) => term.status === "approved");
+  if (policies.length === 0) {
+    throw new AppError(
+      409,
+      "export_review_required",
+      "Approve at least one extracted policy before generating an export."
+    );
+  }
   const previousExport = existingExports[0] ?? null;
   const packVersion = previousExport?.manifest.version ? previousExport.manifest.version + 1 : existingExports.length + 1;
   const generatedAt = new Date().toISOString();
@@ -477,17 +478,6 @@ export async function generateExportPack(
           ? (policy.structuredRule.human_review_conditions as string[])
           : [],
       })),
-      configured_runtime_rules: approvalRules.map((rule) => ({
-        id: rule.id,
-        name: rule.name,
-        scenario: rule.scenario,
-        min_score: rule.minScore,
-        risk_levels: rule.riskLevels,
-        channel_allowlist: rule.channelAllowlist,
-        customer_type_allowlist: rule.customerTypeAllowlist,
-        requires_human_approval: rule.requiresHumanApproval,
-        enabled: rule.enabled,
-      })),
     },
     null,
     2
@@ -520,244 +510,6 @@ export async function generateExportPack(
     .map((policy) => `- ${policy.name}: ${policy.description}`)
     .join("\n")}\n`;
 
-  const sourceEvidence = policies.flatMap((policy) =>
-    policy.sourceEvidence.map((evidence) => ({
-      policy_id: policy.id,
-      source_id: evidence.sourceId,
-      chunk_index: evidence.chunkIndex ?? null,
-    }))
-  );
-
-  const companyIdentityJson = JSON.stringify(
-    {
-      generated_at: generatedAt,
-      pack_version: packVersion,
-      voice_profile: {
-        policy_count: policies.length,
-        scenario_count: scenarios.length,
-        terminology_count: terminology.length,
-        default_tone: "derived_from_reviewed_sources",
-      },
-      preferred_wording: terminology
-        .filter((term) => term.status === "approved" || term.status === "suggested")
-        .map((term) => term.phrase),
-      banned_wording: policies.flatMap((policy) =>
-        Array.isArray(policy.structuredRule.forbidden_phrases)
-          ? (policy.structuredRule.forbidden_phrases as string[])
-          : []
-      ),
-      source_evidence: sourceEvidence,
-    },
-    null,
-    2
-  );
-
-  const knowledgePackJson = JSON.stringify(
-    {
-      generated_at: generatedAt,
-      pack_version: packVersion,
-      policies: policies.map((policy) => ({
-        id: policy.id,
-        name: policy.name,
-        rule_type: policy.ruleType,
-        status: policy.status,
-        severity: policy.severity,
-        confidence: policy.confidence,
-        source_evidence: policy.sourceEvidence,
-      })),
-      scenarios: scenarios.map((scenario) => ({
-        id: scenario.id,
-        name: scenario.name,
-        category: scenario.category,
-        risk_level: scenario.riskLevel,
-      })),
-      terminology: terminology.map((term) => ({
-        id: term.id,
-        phrase: term.phrase,
-        status: term.status,
-        source_evidence: term.sourceEvidence,
-      })),
-    },
-    null,
-    2
-  );
-
-  const salesPositioningPackJson = JSON.stringify(
-    {
-      generated_at: generatedAt,
-      pack_version: packVersion,
-      scenarios: scenarios.filter((scenario) => /sales|pricing|objection|renewal/i.test(`${scenario.category} ${scenario.name}`)),
-      approved_phrases: policies.flatMap((policy) =>
-        /sales|pricing|discount|objection|competitor/i.test(`${policy.name} ${policy.description}`)
-          ? Array.isArray(policy.structuredRule.approved_phrases)
-            ? (policy.structuredRule.approved_phrases as string[])
-            : []
-          : []
-      ),
-      forbidden_claims: policies.flatMap((policy) =>
-        /sales|pricing|discount|objection|competitor/i.test(`${policy.name} ${policy.description}`)
-          ? Array.isArray(policy.structuredRule.forbidden_phrases)
-            ? (policy.structuredRule.forbidden_phrases as string[])
-            : []
-          : []
-      ),
-    },
-    null,
-    2
-  );
-
-  const supportResolutionPackJson = JSON.stringify(
-    {
-      generated_at: generatedAt,
-      pack_version: packVersion,
-      scenarios: scenarios.filter((scenario) => /support|refund|escalation|ticket|resolution/i.test(`${scenario.category} ${scenario.name}`)),
-      escalation_triggers: policies.flatMap((policy) =>
-        Array.isArray(policy.structuredRule.human_review_conditions)
-          ? (policy.structuredRule.human_review_conditions as string[]).filter((condition) =>
-              /refund|support|legal|security|escalat/i.test(condition)
-            )
-          : []
-      ),
-      approved_flows: scenarios.map((scenario) => ({
-        scenario_id: scenario.id,
-        flow: scenario.approvedResponseFlow,
-      })),
-    },
-    null,
-    2
-  );
-
-  const escalationHierarchyJson = JSON.stringify(
-    {
-      generated_at: generatedAt,
-      pack_version: packVersion,
-      escalation_conditions: policies.flatMap((policy) =>
-        Array.isArray(policy.structuredRule.human_review_conditions)
-          ? (policy.structuredRule.human_review_conditions as string[]).map((condition) => ({
-              policy_id: policy.id,
-              condition,
-              severity: policy.severity,
-              route: policy.severity === "critical" || policy.severity === "high" ? "owner_or_admin_review" : "review_queue",
-            }))
-          : []
-      ),
-      configured_approval_rules: approvalRules.map((rule) => ({
-        id: rule.id,
-        name: rule.name,
-        requires_human_approval: rule.requiresHumanApproval,
-      })),
-    },
-    null,
-    2
-  );
-
-  const agentPermissionsJson = JSON.stringify(
-    {
-      generated_at: generatedAt,
-      pack_version: packVersion,
-      agents: agentConfigs.map((config) => ({
-        agent_id: config.agentId,
-        display_name: config.displayName,
-        channel: config.channel,
-        use_case: config.useCase,
-        customer_segment: config.customerSegment,
-        governance_mode: config.governanceMode,
-        score_threshold: config.scoreThreshold,
-        risk_levels: config.riskLevels,
-        enabled: config.enabled,
-        runtime_autonomy: config.governanceMode,
-        can_auto_send: false,
-      })),
-      default_policy: {
-        can_auto_send: false,
-        requires_runtime_governance: true,
-      },
-    },
-    null,
-    2
-  );
-
-  const runtimeGovernancePolicyJson = JSON.stringify(
-    {
-      generated_at: generatedAt,
-      pack_version: packVersion,
-      policy_pack_checksum: null,
-      governance_modes: agentConfigs.map((config) => ({
-        agent_id: config.agentId,
-        channel: config.channel,
-        use_case: config.useCase,
-        customer_segment: config.customerSegment,
-        mode: config.governanceMode,
-        score_threshold: config.scoreThreshold,
-        notification_destinations: config.notificationDestinations,
-      })),
-      approval_rules: approvalRules.map((rule) => ({
-        id: rule.id,
-        scenario: rule.scenario,
-        min_score: rule.minScore,
-        risk_levels: rule.riskLevels,
-        requires_human_approval: rule.requiresHumanApproval,
-        enabled: rule.enabled,
-      })),
-    },
-    null,
-    2
-  );
-
-  const testSuiteManifestJson = JSON.stringify(
-    {
-      generated_at: generatedAt,
-      pack_version: packVersion,
-      tests: [
-        ...policies.map((policy) => ({
-          id: `policy:${policy.id}`,
-          type: "policy_adherence",
-          source_policy_id: policy.id,
-          expected: "draft must follow approved phrases and avoid forbidden phrases",
-        })),
-        ...scenarios.map((scenario) => ({
-          id: `scenario:${scenario.id}`,
-          type: "scenario_flow",
-          source_scenario_id: scenario.id,
-          expected_steps: scenario.approvedResponseFlow,
-        })),
-      ],
-      generated_from: {
-        policies: policies.length,
-        scenarios: scenarios.length,
-        evaluations: evaluations.length,
-      },
-    },
-    null,
-    2
-  );
-
-  const agentAlignmentReportJson = JSON.stringify(
-    {
-      generated_at: generatedAt,
-      pack_version: packVersion,
-      summary: {
-        evaluation_count: evaluations.length,
-        average_score:
-          evaluations.length === 0
-            ? null
-            : Math.round(evaluations.reduce((sum, item) => sum + item.scores.total, 0) / evaluations.length),
-        repair_required_count: evaluations.filter((item) => item.repairRequired).length,
-        approval_required_count: evaluations.filter((item) => item.approvalRequired).length,
-      },
-      recent_evaluations: evaluations.slice(0, 20).map((item) => ({
-        id: item.id,
-        scenario_id: item.scenarioId,
-        score: item.scores.total,
-        approval_required: item.approvalRequired,
-        repair_required: item.repairRequired,
-        created_at: item.createdAt,
-      })),
-    },
-    null,
-    2
-  );
-
   const artifacts: ExportArtifact[] = [
     { name: "company_voice.md", contentType: "text/markdown", content: voiceMarkdown, checksum: hash(voiceMarkdown) },
     { name: "communication_policy.json", contentType: "application/json", content: policyJson, checksum: hash(policyJson) },
@@ -769,15 +521,6 @@ export async function generateExportPack(
     { name: "approved_examples.jsonl", contentType: "application/jsonl", content: toJsonLines(approvedExamples), checksum: hash(toJsonLines(approvedExamples)) },
     { name: "rejected_examples.jsonl", contentType: "application/jsonl", content: toJsonLines(rejectedExamples), checksum: hash(toJsonLines(rejectedExamples)) },
     { name: "agent_prompt_pack.md", contentType: "text/markdown", content: promptPackMarkdown, checksum: hash(promptPackMarkdown) },
-    { name: "company_identity.json", contentType: "application/json", content: companyIdentityJson, checksum: hash(companyIdentityJson) },
-    { name: "knowledge_pack.json", contentType: "application/json", content: knowledgePackJson, checksum: hash(knowledgePackJson) },
-    { name: "sales_positioning_pack.json", contentType: "application/json", content: salesPositioningPackJson, checksum: hash(salesPositioningPackJson) },
-    { name: "support_resolution_pack.json", contentType: "application/json", content: supportResolutionPackJson, checksum: hash(supportResolutionPackJson) },
-    { name: "escalation_hierarchy.json", contentType: "application/json", content: escalationHierarchyJson, checksum: hash(escalationHierarchyJson) },
-    { name: "agent_permissions.json", contentType: "application/json", content: agentPermissionsJson, checksum: hash(agentPermissionsJson) },
-    { name: "runtime_governance_policy.json", contentType: "application/json", content: runtimeGovernancePolicyJson, checksum: hash(runtimeGovernancePolicyJson) },
-    { name: "test_suite_manifest.json", contentType: "application/json", content: testSuiteManifestJson, checksum: hash(testSuiteManifestJson) },
-    { name: "agent_alignment_report.json", contentType: "application/json", content: agentAlignmentReportJson, checksum: hash(agentAlignmentReportJson) },
   ];
 
   const orderedArtifacts = [...artifacts].sort((a, b) => a.name.localeCompare(b.name));
@@ -791,7 +534,6 @@ export async function generateExportPack(
       content_type: artifact.contentType,
       checksum: artifact.checksum,
     })),
-    source_evidence_count: sourceEvidence.length,
     rollback: {
       previous_export_id: previousExport?.id ?? null,
       previous_checksum: previousExport?.manifest.checksum ?? null,

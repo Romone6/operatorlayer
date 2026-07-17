@@ -86,6 +86,7 @@ export async function processSourceExtraction(repository: OperatorRepository, so
   const extractedScenarios: Scenario[] = scenarios.map((scenario) => ({
     id: crypto.randomUUID(),
     organisationId: source.organisationId,
+    sourceId: source.id,
     name: scenario.name,
     category: scenario.category,
     description: scenario.description,
@@ -100,6 +101,7 @@ export async function processSourceExtraction(repository: OperatorRepository, so
   const extractedConflicts: Conflict[] = conflicts.map((conflict) => ({
     id: crypto.randomUUID(),
     organisationId: source.organisationId,
+    sourceId: source.id,
     conflictType: conflict.conflict_type,
     severity: conflict.severity,
     manualRule: conflict.manual_rule,

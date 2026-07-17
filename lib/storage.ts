@@ -1,4 +1,16 @@
 import { getSupabaseAdminClient } from "@/lib/supabase/server";
+import { AppError } from "@/lib/errors";
+
+export const MAX_SOURCE_FILE_BYTES = 10 * 1024 * 1024;
+
+export function validateSourceFile(file: File) {
+  if (file.size > MAX_SOURCE_FILE_BYTES) {
+    throw new AppError(400, "source_file_too_large", "Source files must be 10 MB or smaller.");
+  }
+  if (!file.name || file.name.includes("..") || /[\\/]/.test(file.name)) {
+    throw new AppError(400, "source_file_name_invalid", "Source file name is invalid.");
+  }
+}
 
 export async function uploadSourceFile(params: {
   organisationId: string;
@@ -7,25 +19,40 @@ export async function uploadSourceFile(params: {
   fileName: string;
   data: Buffer;
 }) {
+  if (params.data.byteLength > MAX_SOURCE_FILE_BYTES) {
+    throw new AppError(400, "source_file_too_large", "Source files must be 10 MB or smaller.");
+  }
+  if (!params.fileName || params.fileName.includes("..") || /[\\/]/.test(params.fileName)) {
+    throw new AppError(400, "source_file_name_invalid", "Source file name is invalid.");
+  }
+  const storagePath = `${params.organisationId}/${params.sourceId}/${params.fileName}`;
   if (process.env.OPERATORLAYER_DATA_BACKEND === "memory") {
     return {
-      fileUrl: `memory://sources/${params.organisationId}/${params.sourceId}/${params.fileName}`,
+      storagePath,
     };
   }
 
   const bucketName = process.env.SUPABASE_STORAGE_BUCKET ?? "operatorlayer-sources";
   const client = getSupabaseAdminClient();
-  const path = `${params.organisationId}/${params.sourceId}/${params.fileName}`;
   const { error } = await client.storage
     .from(bucketName)
-    .upload(path, params.data, { upsert: true, contentType: mimeByType(params.sourceType) });
+    .upload(storagePath, params.data, { upsert: true, contentType: mimeByType(params.sourceType) });
 
   if (error) {
     throw new Error(`Failed to upload source file: ${error.message}`);
   }
 
-  const { data } = client.storage.from(bucketName).getPublicUrl(path);
-  return { fileUrl: data.publicUrl };
+  return { storagePath };
+}
+
+export async function deleteSourceFile(storagePath: string) {
+  if (process.env.OPERATORLAYER_DATA_BACKEND === "memory") return;
+
+  const bucketName = process.env.SUPABASE_STORAGE_BUCKET ?? "operatorlayer-sources";
+  const { error } = await getSupabaseAdminClient().storage.from(bucketName).remove([storagePath]);
+  if (error) {
+    throw new AppError(500, "source_file_delete_failed", "Failed to delete source file.", error);
+  }
 }
 
 function mimeByType(sourceType: string) {

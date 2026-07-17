@@ -8,6 +8,7 @@ import { POST as uploadSource } from "@/app/api/sources/upload/route";
 import { POST as processSource } from "@/app/api/sources/[id]/process/route";
 import * as parsers from "@/lib/parsers";
 import { resetMemoryRepository } from "@/lib/repository/memory";
+import { getRepository } from "@/lib/repository";
 
 vi.mock("@/lib/intelligence", () => ({
   extractPolicyFromManual: vi.fn(async () => [
@@ -107,6 +108,23 @@ describe("sources API integration", () => {
     expect(listPayload.data[0].policyCount).toBeGreaterThan(0);
   });
 
+  it("preserves scenarios from earlier sources when another source is processed", async () => {
+    for (const [title, pastedText] of [
+      ["Manual one", "price is too high. based on what you shared."],
+      ["Manual two", "discount requests need a manager review."],
+    ]) {
+      const form = new FormData();
+      form.set("title", title);
+      form.set("sourceType", "pasted_text");
+      form.set("authorityLevel", "standard");
+      form.set("pastedText", pastedText);
+      const response = await uploadSource(request("http://localhost/api/sources/upload", { method: "POST", body: form }));
+      expect(response.status).toBe(201);
+    }
+
+    expect(await getRepository().listScenarios("test-org-001")).toHaveLength(2);
+  });
+
   it("marks failed when model extraction fails", async () => {
     vi.mocked(extractPolicyFromManual).mockRejectedValueOnce(new Error("model failure"));
 
@@ -144,6 +162,19 @@ describe("sources API integration", () => {
     };
     expect(payload.data[0].processingStatus).toBe("failed");
     expect(payload.data[0].metadata.error).toContain("parser failure");
+  });
+
+  it("rejects source files larger than the supported upload limit", async () => {
+    vi.spyOn(parsers, "extractTextFromSource").mockResolvedValueOnce("policy text");
+
+    const form = new FormData();
+    form.set("title", "Oversized manual");
+    form.set("sourceType", "txt");
+    form.set("authorityLevel", "standard");
+    form.set("file", new File([Buffer.alloc(10 * 1024 * 1024 + 1)], "manual.txt", { type: "text/plain" }));
+
+    const response = await uploadSource(request("http://localhost/api/sources/upload", { method: "POST", body: form }));
+    expect(response.status).toBe(400);
   });
 
   it("supports process, reprocess, and delete endpoints", async () => {
@@ -211,5 +242,6 @@ describe("sources API integration", () => {
     const listRes = await listSources(request("http://localhost/api/sources"));
     const payload = (await listRes.json()) as { data: unknown[] };
     expect(payload.data).toHaveLength(0);
+    expect(await getRepository().listScenarios("test-org-001")).toHaveLength(0);
   });
 });
