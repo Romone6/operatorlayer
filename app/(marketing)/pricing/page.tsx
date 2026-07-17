@@ -1,5 +1,5 @@
 import { PublicPage } from "@/components/marketing/public-page";
 
 export default function PricingPage() {
-  return <PublicPage eyebrow="Pricing" title="The open-source core is available under MIT." summary="This release has no billing, hosted-plan, or entitlement system. Run and adapt the core under the licence, within its stated product and security boundaries." items={[{ title: "No commercial claims", body: "There are no tiers, trial claims, invoices, or payment integrations in the public core." }, { title: "Sustainable expansion", body: "Hosted or enterprise work belongs in a separately designed project, not in the upload-first release." }]} />;
+  return <PublicPage eyebrow="Pricing" title="Operant is available under the MIT License." summary="You can run and adapt the software under the licence. There are no hosted plans, billing, or payment features in this repository." items={[{ title: "Use the software", body: "Run Operant in your own environment and adapt it to your workflow." }, { title: "Know what is included", body: "The repository does not include tiers, trials, invoices, or payment integrations." }]} />;
 }

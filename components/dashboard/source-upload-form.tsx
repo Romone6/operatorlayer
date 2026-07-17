@@ -16,7 +16,7 @@ const initialState: FormState = {
   pastedText: "",
 };
 
-export function SourceUploadForm() {
+export function SourceUploadForm({ onCreated }: { onCreated?: () => Promise<void> | void }) {
   const [form, setForm] = useState<FormState>(initialState);
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -46,7 +46,8 @@ export function SourceUploadForm() {
         throw new Error(payload.error?.message ?? "Upload failed");
       }
 
-      setMessage("Source uploaded and processing started. Refresh to view extracted records.");
+      await onCreated?.();
+      setMessage("Source added. Extraction has started.");
       setForm(initialState);
       setFile(null);
     } catch (submitError) {
@@ -58,7 +59,10 @@ export function SourceUploadForm() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-background-card)] p-4">
-      <h3 className="font-semibold">Upload Source</h3>
+      <div>
+        <h3 className="font-semibold">Add a source</h3>
+        <p className="mt-1 text-sm text-[var(--color-text-muted)]">Operant starts extracting guidance as soon as you add it.</p>
+      </div>
       <div className="grid gap-3 md:grid-cols-2">
         <label className="space-y-1 text-sm">
           <span className="text-[var(--color-text-muted)]">Title</span>
@@ -115,7 +119,7 @@ export function SourceUploadForm() {
         disabled={submitting}
         className="rounded-xl bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
       >
-        {submitting ? "Uploading..." : "Upload and Process"}
+        {submitting ? "Adding source..." : "Add source and start extraction"}
       </button>
       {message ? <p className="text-sm text-emerald-300">{message}</p> : null}
       {error ? <p className="text-sm text-rose-300">{error}</p> : null}

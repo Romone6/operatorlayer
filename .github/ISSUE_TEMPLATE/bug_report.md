@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report a reproducible problem in the public core
+about: Report a reproducible problem in Operant
 labels: bug
 ---
 

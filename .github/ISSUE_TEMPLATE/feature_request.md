@@ -1,6 +1,6 @@
 ---
 name: Core improvement
-about: Propose a scoped improvement to the upload-first core
+about: Propose an improvement to Operant
 labels: enhancement
 ---
 
